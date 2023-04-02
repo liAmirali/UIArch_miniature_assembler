@@ -1,6 +1,6 @@
 .vscode
 assprog*.as
-assprog*.m
+machprog*.m
 a.out
 assemble
 build

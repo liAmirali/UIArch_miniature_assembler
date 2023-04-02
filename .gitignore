@@ -1,4 +1,8 @@
 .vscode
-assprog.as
-assprog.m
+assprog*.as
+assprog*.m
 a.out
+assemble
+build
+run
+*.swp

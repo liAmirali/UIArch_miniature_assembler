@@ -8,16 +8,19 @@
 #define RTYPE 0
 #define ITYPE 1
 #define JTYPE 2
+// sizing constants
+#define LINE_SIZE 72
+#define TXT_SEG_SIZE 8192
 /* this structure is defined to hold ever entity of symbol table    *
  * which, after finding the length, will become an array of symbols */
-struct symbolTable
+struct SymbolTable
 {
     int value;
     char *symbol;
 };
 /* every time an instruction is read, it will be tokenized and each   *
  * token will reside in one element of this structure               */
-struct instruction
+struct Instruction
 {
     size_t instType; // 0 means r type, 1 means i type and 2 means j type
     size_t intInst;
@@ -33,8 +36,11 @@ struct instruction
  * code and count the number of symbols and return it              */
 int findSymTabLen(FILE *);
 /* this function fills up the symbol table                         */
-int fillSymTab(struct symbolTable *, FILE *);
+int fillSymTab(struct SymbolTable *, FILE *);
 /* and the following functions are other ancillary functions        */
-void formInst(struct instruction *, FILE *);
+void formInst(struct Instruction *, FILE *);
 int hex2int(char *);
 void int2hex16(char *, int);
+
+/* parses the instruction and extracts the tokens */
+struct Instruction tokenize(char* line);

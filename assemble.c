@@ -1,24 +1,31 @@
 #include "assemble.h"
+
 void main(int argc, char **argv)
 {
-    FILE *assp, *machp, *fopen();
-    struct symbolTable *pSymTab;
-    int symTabLen;
+    FILE *assem_file, *machine_file, *fopen();
+    struct SymbolTable *sym_table;
+    int sym_table_size;
     int i, j, found, noInsts;
-    struct instruction *currInst;
-    size_t lineSize;
+    struct Instruction *curr_instruction;
     char *line;
     char *token;
+    char *lines[TXT_SEG_SIZE];
+    unsigned short int sp;
+
+    // lines = (char **)malloc(15 * sizeof(char *));
+
     char *instructions[] = {"add", "sub", "slt", "or", "nand",
                             "addi", "slti", "ori", "lui", "lw", "sw", "beq", "jalr",
                             "j", "halt"};
-    int instCnt = 0;
-    char hexTable[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    char lower[5];
+    int instruction_count = 0;
+    char hex_table[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
     i = 0;
     j = 0;
-    line = (char *)malloc(72);
-    currInst = (struct instruction *)malloc(sizeof(struct instruction));
+    line = (char *)malloc(LINE_SIZE);
+    curr_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
+    sp = 65536;
+
     if (argc < 3)
     {
         printf("***** Please run this program as follows:\n");
@@ -27,33 +34,40 @@ void main(int argc, char **argv)
         printf("***** and machprog.m will be your machine code.\n");
         exit(1);
     }
-    if ((assp = fopen(argv[1], "r")) == NULL)
+    if ((assem_file = fopen(argv[1], "r")) == NULL)
     {
         printf("%s cannot be opened\n", argv[1]);
         exit(1);
     }
-    if ((machp = fopen(argv[2], "w+")) == NULL)
+    if ((machine_file = fopen(argv[2], "w+")) == NULL)
     {
         printf("%s cannot be opened\n", argv[2]);
         exit(1);
     }
-    /*************************************************
-     * ********************************************* *
-     * ********************************************* *
-     here, you can place your code for the assembler
-     * ********************************************* *
-     * ********************************************* *
-     *************************************************/
-    fclose(assp);
-    fclose(machp);
+
+    while (!feof(assem_file))
+    {
+        fgets(line, LINE_SIZE, assem_file);
+        if (strcmp(line, "\n") != 0)
+        {
+
+            strcpy(lines[instruction_count], line);
+            instruction_count++;
+        }
+    }
+
+    sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (instruction_count));
+
+    fclose(assem_file);
+    fclose(machine_file);
 }
 int findSymTabLen(FILE *inputFile)
 {
     int count = 0;
-    size_t lineSize;
+    size_t line_size;
     char *line;
-    line = (char *)malloc(72);
-    while (getline(&line, &lineSize, inputFile) != -1)
+    line = (char *)malloc(line_size);
+    while (getline(&line, &line_size, inputFile) != -1)
     {
         if ((line[0] == ' ') || (line[0] == '\t'))
             ;
@@ -64,15 +78,15 @@ int findSymTabLen(FILE *inputFile)
     free(line);
     return count;
 }
-int fillSymTab(struct symbolTable *symT, FILE *inputFile)
+int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
 {
     int lineNo = 0;
-    size_t lineSize;
+    size_t line_size;
     char *line;
     int i = 0;
     char *token;
-    line = (char *)malloc(72);
-    while (getline(&line, &lineSize, inputFile) != -1)
+    line = (char *)malloc(line_size);
+    while (getline(&line, &line_size, inputFile) != -1)
     {
         if ((line[0] == ' ') || (line[0] == '\t'))
             ;

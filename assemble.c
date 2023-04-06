@@ -5,7 +5,7 @@ void main(int argc, char **argv)
     FILE *assem_file, *machine_file, *fopen();
     struct SymbolTable *sym_table;
     int sym_table_size;
-    int i, j, found, noInsts;
+    int i, j, found;
     struct Instruction *curr_instruction;
     char *line;
     char *token;
@@ -56,30 +56,31 @@ void main(int argc, char **argv)
 
 int compile(FILE *assembly_file, FILE *machine_code_file)
 {
-    size_t lineSize = LINE_SIZE;
-    char *line = (char *)malloc(lineSize * sizeof(char));
-    char **tokens;
+    size_t line_size = LINE_SIZE;
+    char *line = (char *)malloc(line_size * sizeof(char));
+    char *tokens[4];
+    int token_count;
 
-    while (getline(&line, &lineSize, assembly_file))
+    while (getline(&line, &line_size, assembly_file))
     {
         remove_trailing_nline(line);
 
         if (line == NULL || strcmp(line, "") == 0) continue;
 
-        tokens = tokenize(line, &tokens);
+        token_count = tokenize(line, tokens);
     }
 }
 
-int fill_symtab(struct SymbolTable *symT, FILE *inputFile)
+int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 {
     char *token;
-    size_t lineSize = LINE_SIZE;
-    char *line = (char *)malloc(lineSize * sizeof(char));
+    size_t line_size = LINE_SIZE;
+    char *line = (char *)malloc(line_size * sizeof(char));
     int i = 0;
     char delimiter[4] = "\t ";
-    int symTabLen = 0;
+    int symbol_table_size = 0;
 
-    while (getline(&line, &lineSize, inputFile) != -1)
+    while (getline(&line, &line_size, inputFile) != -1)
     {
         remove_trailing_nline(line);
 
@@ -89,20 +90,20 @@ int fill_symtab(struct SymbolTable *symT, FILE *inputFile)
 
         if (token == NULL) continue;
 
-        int isInst = is_token_inst(token);
+        int is_instruction = is_token_inst(token);
 
-        if (!isInst)
+        if (!is_instruction)
         {
-            (symT + i)->symbol = malloc(strlen(token));
-            strcpy((symT + i)->symbol, token);
-            symT[i].value = i;
-            symTabLen++;
+            (symbol_table + i)->symbol = malloc(strlen(token));
+            strcpy((symbol_table + i)->symbol, token);
+            symbol_table[i].value = i;
+            symbol_table_size++;
         }
         i++;
     }
     rewind(inputFile);
     free(line);
-    return symTabLen;
+    return symbol_table_size;
 }
 
 int tokenize(char *line, char *tokens[4])
@@ -113,23 +114,23 @@ int tokenize(char *line, char *tokens[4])
      *   1              2                     3                     4
      */
 
-    size_t lineSize = LINE_SIZE;
-    char *line = (char *)malloc(lineSize * sizeof(char));
+    size_t line_size = LINE_SIZE;
+    char *line = (char *)malloc(line_size * sizeof(char));
     char delimiter[4] = "\t ";
-    int tokenCount = 0;
+    int token_count = 0;
     char *curr_token;
     int i = 0;
 
     curr_token = strtok(line, delimiter);
     while (curr_token != NULL)
     {
-        tokenCount++;
-        if (tokenCount == 4)
+        token_count++;
+        if (token_count == 4)
         {
             if (tokens[3][0] == '#')
             {
                 // It's a comment from now on; so we just stop reading tokens here
-                return tokenCount;
+                return token_count;
             }
             else
             {
@@ -147,20 +148,20 @@ int tokenize(char *line, char *tokens[4])
         curr_token = strtok(NULL, delimiter);
     }
 
-    return tokenCount;
+    return token_count;
 }
 
 struct Instruction compile_inst(char **tokens)
 {
     char *token;
-    size_t lineSize = LINE_SIZE;
-    char *line = (char *)malloc(lineSize * sizeof(char));
+    size_t line_size = LINE_SIZE;
+    char *line = (char *)malloc(line_size * sizeof(char));
     int i = 0;
     char delimiter[4] = "\t ";
-    int tokenCount = 0;
+    int token_count = 0;
     char *tokens[4];
 
-    switch (tokenCount)
+    switch (token_count)
     {
     case 4:
 

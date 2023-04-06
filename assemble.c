@@ -43,9 +43,31 @@ void main(int argc, char **argv)
 
     sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
     sym_table_size = fill_symtab(sym_table, assem_file);
+    int status = compile(assem_file, machine_file);
+
+    if (status == 0)
+        printf("Compiled successfully.");
+    else
+        printf("Compilation ended with an error.");
 
     fclose(assem_file);
     fclose(machine_file);
+}
+
+int compile(FILE *assembly_file, FILE *machine_code_file)
+{
+    size_t lineSize = LINE_SIZE;
+    char *line = (char *)malloc(lineSize * sizeof(char));
+    char **tokens;
+
+    while (getline(&line, &lineSize, assembly_file))
+    {
+        remove_trailing_nline(line);
+
+        if (line == NULL || strcmp(line, "") == 0) continue;
+
+        tokens = tokenize(line, &tokens);
+    }
 }
 
 int fill_symtab(struct SymbolTable *symT, FILE *inputFile)
@@ -83,7 +105,7 @@ int fill_symtab(struct SymbolTable *symT, FILE *inputFile)
     return symTabLen;
 }
 
-char **tokenize(char *line)
+int tokenize(char *line, char *tokens[4])
 {
     /**
      * label<white>instruction<white>field0,field1,field2<white>#comments
@@ -96,7 +118,6 @@ char **tokenize(char *line)
     char delimiter[4] = "\t ";
     int tokenCount = 0;
     char *curr_token;
-    char *tokens[4];
     int i = 0;
 
     curr_token = strtok(line, delimiter);
@@ -108,14 +129,14 @@ char **tokenize(char *line)
             if (tokens[3][0] == '#')
             {
                 // It's a comment from now on; so we just stop reading tokens here
-                return tokens;
+                return tokenCount;
             }
             else
             {
                 // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
                 printf("Instruction is not in the following format:");
                 printf("label<white>instruction<white>field0,field1,field2<white>#comments");
-                return NULL;
+                return 0;
             }
         }
 
@@ -126,7 +147,7 @@ char **tokenize(char *line)
         curr_token = strtok(NULL, delimiter);
     }
 
-    return tokens;
+    return tokenCount;
 }
 
 struct Instruction compile_inst(char **tokens)

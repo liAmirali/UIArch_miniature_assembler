@@ -41,6 +41,12 @@ struct Instruction
  * This function fills up the symbol table
  */
 int fill_symtab(struct SymbolTable *, FILE *);
+/**
+ * This function scans the assembly code entirely and writes the compiled code into the machine code file
+ * @return 0 for succss and integers for any error
+ */
+int compile(FILE *assembly_file, FILE *machine_code_file);
+
 // ?
 int hex2int(char *);
 void int2hex16(char *, int);
@@ -60,4 +66,4 @@ struct Instruction compile_inst(char **);
 /**
  * This function parses the instruction and extracts the tokens
  */
-char **tokenize(char *);
+int tokenize(char *, char *[4]);

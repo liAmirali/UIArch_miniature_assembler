@@ -38,11 +38,11 @@ struct Instruction
     int PC;
 };
 /**
- * This function fills up the symbol table
+ * Fills up the symbol table
  */
 int fill_symtab(struct SymbolTable *, FILE *);
 /**
- * This function scans the assembly code entirely and writes the compiled code into the machine code file
+ * Scans the assembly code entirely and writes the compiled code into the machine code file
  * @return 0 for succss and integers for any error
  */
 int compile(FILE *assembly_file, FILE *machine_code_file);
@@ -51,19 +51,29 @@ int compile(FILE *assembly_file, FILE *machine_code_file);
 int hex2int(char *);
 void int2hex16(char *, int);
 /**
- * This function checks if a token is a valid instruction among the 15 defined instructions
+ * Checks if a token is a valid instruction among the 15 defined instructions
  */
-int is_token_inst(char *);
+int is_instruction(char *);
 /**
- * This function removes the new line if it is the last character
+ * Removes the new line if it is the last character
  */
 void remove_trailing_nline(char *);
 /**
- * This function returns an instruction struct with given tokens
+ * Returns an instruction struct with given tokens
  */
-struct Instruction compile_inst(char **);
+struct Instruction *compile_instruction(char *[4], size_t token_count);
 
 /**
- * This function parses the instruction and extracts the tokens
+ * Parses the instruction and extracts the tokens
+ * Returns the token count from the return value
+ * and puts the actual tokens in the char array passed to the arguments
  */
-int tokenize(char *, char *[4]);
+size_t tokenize(char *, char *[4]);
+/**
+ * Parses the fields seperated with commas
+ */
+size_t parse_fields_token(char *token, char **parsed);
+/**
+ * Checks if the field count matches with the instruction
+ */
+int get_number_of_fields(char *instruction);

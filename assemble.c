@@ -10,7 +10,7 @@ void main(int argc, char **argv)
     char *line;
     char *token;
     char *lines[TXT_SEG_SIZE];
-    unsigned int sp;
+    unsigned int stack_pointer;
 
     // lines = (char **)malloc(15 * sizeof(char *));
 
@@ -20,7 +20,7 @@ void main(int argc, char **argv)
     j = 0;
     line = (char *)malloc(LINE_SIZE);
     curr_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
-    sp = 65536;
+    stack_pointer = 65536;
 
     if (argc < 3)
     {
@@ -59,7 +59,7 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
     char *tokens[4];
-    int token_count;
+    size_t token_count;
 
     while (getline(&line, &line_size, assembly_file))
     {
@@ -68,6 +68,16 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         if (line == NULL || strcmp(line, "") == 0) continue;
 
         token_count = tokenize(line, tokens);
+
+        // ####TEMP CODE#####
+        printf("token_count=%d", token_count);
+        for (int i = 0; i < token_count; i++)
+        {
+            printf("tokens[%d]=%s", i, tokens[i]);
+        }
+        // ####TEMP CODE#####
+
+        // compile_instruction(tokens, token_count);
     }
 }
 
@@ -90,9 +100,7 @@ int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 
         if (token == NULL) continue;
 
-        int is_instruction = is_token_inst(token);
-
-        if (!is_instruction)
+        if (!is_instruction(token))
         {
             (symbol_table + i)->symbol = malloc(strlen(token));
             strcpy((symbol_table + i)->symbol, token);
@@ -106,7 +114,7 @@ int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
     return symbol_table_size;
 }
 
-int tokenize(char *line, char *tokens[4])
+size_t tokenize(char *line, char *tokens[4])
 {
     /**
      * label<white>instruction<white>field0,field1,field2<white>#comments
@@ -115,9 +123,8 @@ int tokenize(char *line, char *tokens[4])
      */
 
     size_t line_size = LINE_SIZE;
-    char *line = (char *)malloc(line_size * sizeof(char));
     char delimiter[4] = "\t ";
-    int token_count = 0;
+    size_t token_count = 0;
     char *curr_token;
     int i = 0;
 
@@ -151,25 +158,73 @@ int tokenize(char *line, char *tokens[4])
     return token_count;
 }
 
-struct Instruction compile_inst(char **tokens)
+size_t parse_fields_token(char *token, char **parsed)
 {
-    char *token;
-    size_t line_size = LINE_SIZE;
-    char *line = (char *)malloc(line_size * sizeof(char));
-    int i = 0;
-    char delimiter[4] = "\t ";
-    int token_count = 0;
-    char *tokens[4];
+    char *fields[3];
+    char *curr_field;
+}
 
-    switch (token_count)
-    {
-    case 4:
+struct Instruction *compile_instruction(char *tokens[4], size_t token_count)
+{
+    char *instruction;
+    char *fields_token;
+    char *fields[3];
+    char *field;
+    size_t expected_field_count;
+    size_t parsed_field_count;
+    int i;
 
-        break;
+    struct Instruction *compiled_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
 
-    default:
-        break;
-    }
+    return compiled_instruction;
+}
+
+// int check_valid_tokens(char *tokens[4], size_t token_count)
+// {
+//     // Parses the instruction and fields and checks the format
+//     if (is_instruction(tokens[0]))
+//     {
+//         instruction = tokens[0];
+
+//         expected_field_count = get_number_of_fields(instruction);
+
+//         if (expected_field_count == 0 && tokens[1][0] != '#')
+//         {
+//             printf("Exptected no toke")
+//         }
+
+//         parsed_field_count = parse_fields_token(tokens[1], fields);
+
+//         if (parse_fields_token != expected_field_count)
+//         {
+//             printf("Number of expected fields didn't match the expected amount.");
+//             return NULL;
+//         }
+//     }
+//     else if (is_instruction(tokens[1]))
+//     {
+//         instruction = tokens[1];
+//         expected_field_count = get_number_of_fields(instruction);
+//     }
+//     else
+//     {
+//         printf("Invalid statement.");
+//         return NULL;
+//     }
+// }
+
+int get_number_of_fields(char *instruction)
+{
+    if (!is_instruction(instruction)) return -1;
+
+    if (instruction == "lui" || instruction == "offset")
+        return 2;
+    else if (instruction == "offset")
+        return 1;
+    else if (instruction == "halt")
+        return 0;
+    else
+        return 3;
 }
 
 int hex2int(char *hex)
@@ -217,7 +272,7 @@ void int2hex16(char *lower, int a)
     }
 }
 
-int is_token_inst(char *str)
+int is_instruction(char *str)
 {
     if (str == NULL) return 0;
 
@@ -229,7 +284,7 @@ int is_token_inst(char *str)
 
 void remove_trailing_nline(char *str)
 {
-    if (str == NULL) return NULL;
+    if (str == NULL) return;
 
     size_t size = strlen(str);
     if (str[size - 1] == '\n') str[size - 1] = '\0';

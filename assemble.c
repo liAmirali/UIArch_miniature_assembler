@@ -42,13 +42,13 @@ void main(int argc, char **argv)
     }
 
     sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
-    sym_table_size = fillSymTab(sym_table, assem_file);
+    sym_table_size = fill_symtab(sym_table, assem_file);
 
     fclose(assem_file);
     fclose(machine_file);
 }
 
-int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
+int fill_symtab(struct SymbolTable *symT, FILE *inputFile)
 {
     char *token;
     size_t lineSize = LINE_SIZE;
@@ -59,7 +59,7 @@ int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
 
     while (getline(&line, &lineSize, inputFile) != -1)
     {
-        removeTrailingNewLine(line);
+        remove_trailing_nline(line);
 
         if (line == NULL || strcmp(line, "") == 0) continue;
 
@@ -67,7 +67,7 @@ int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
 
         if (token == NULL) continue;
 
-        int isInst = isTokenAnInstruction(token);
+        int isInst = is_token_inst(token);
 
         if (!isInst)
         {
@@ -81,6 +81,73 @@ int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
     rewind(inputFile);
     free(line);
     return symTabLen;
+}
+
+char **tokenize(char *line)
+{
+    /**
+     * label<white>instruction<white>field0,field1,field2<white>#comments
+     * --^--       -----^-----       ---------^----------       ----^----
+     *   1              2                     3                     4
+     */
+
+    size_t lineSize = LINE_SIZE;
+    char *line = (char *)malloc(lineSize * sizeof(char));
+    char delimiter[4] = "\t ";
+    int tokenCount = 0;
+    char *curr_token;
+    char *tokens[4];
+    int i = 0;
+
+    curr_token = strtok(line, delimiter);
+    while (curr_token != NULL)
+    {
+        tokenCount++;
+        if (tokenCount == 4)
+        {
+            if (tokens[3][0] == '#')
+            {
+                // It's a comment from now on; so we just stop reading tokens here
+                return tokens;
+            }
+            else
+            {
+                // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
+                printf("Instruction is not in the following format:");
+                printf("label<white>instruction<white>field0,field1,field2<white>#comments");
+                return NULL;
+            }
+        }
+
+        strcpy(tokens[i++], curr_token);
+
+        printf("%s\n", curr_token);
+
+        curr_token = strtok(NULL, delimiter);
+    }
+
+    return tokens;
+}
+
+struct Instruction compile_inst(char **tokens)
+{
+    char *token;
+    size_t lineSize = LINE_SIZE;
+    char *line = (char *)malloc(lineSize * sizeof(char));
+    int i = 0;
+    char delimiter[4] = "\t ";
+    int tokenCount = 0;
+    char *tokens[4];
+
+    switch (tokenCount)
+    {
+    case 4:
+
+        break;
+
+    default:
+        break;
+    }
 }
 
 int hex2int(char *hex)
@@ -128,7 +195,7 @@ void int2hex16(char *lower, int a)
     }
 }
 
-int isTokenAnInstruction(char *str)
+int is_token_inst(char *str)
 {
     if (str == NULL) return 0;
 
@@ -138,13 +205,14 @@ int isTokenAnInstruction(char *str)
     return 0;
 }
 
-void removeTrailingNewLine(char *str)
+void remove_trailing_nline(char *str)
 {
-    int i = 0;
-    while (str[i] != '\n')
-    {
-        if (str[i] == '\0') break;
-        i++;
-    }
-    str[i] = '\0';
+    if (str == NULL) return NULL;
+
+    size_t size = strlen(str);
+    if (str[size - 1] == '\n') str[size - 1] = '\0';
+}
+
+void print_error(char *err_msg)
+{
 }

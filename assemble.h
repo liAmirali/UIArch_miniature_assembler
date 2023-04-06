@@ -37,18 +37,27 @@ struct Instruction
     int imm;
     int PC;
 };
-/* the following function, findSymTabLen, will scan the assembly    *
- * code and count the number of symbols and return it              */
-int findSymTabLen(FILE *);
-/* this function fills up the symbol table                         */
-int fillSymTab(struct SymbolTable *, FILE *);
-/* and the following functions are other ancillary functions        */
-void formInst(struct Instruction *, FILE *);
+/**
+ * This function fills up the symbol table
+ */
+int fill_symtab(struct SymbolTable *, FILE *);
+// ?
 int hex2int(char *);
 void int2hex16(char *, int);
+/**
+ * This function checks if a token is a valid instruction among the 15 defined instructions
+ */
+int is_token_inst(char *);
+/**
+ * This function removes the new line if it is the last character
+ */
+void remove_trailing_nline(char *);
+/**
+ * This function returns an instruction struct with given tokens
+ */
+struct Instruction compile_inst(char **);
 
-int isTokenAnInstruction(char *);
-void removeTrailingNewLine(char *);
-
-/* parses the instruction and extracts the tokens */
-struct Instruction tokenize(char *line);
+/**
+ * This function parses the instruction and extracts the tokens
+ */
+char **tokenize(char *);

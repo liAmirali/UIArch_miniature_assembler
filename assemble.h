@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 // the number of R, I and J type instructions
+#define INST_CNT 15
 #define NORTYPE 5
 #define NOITYPE 8
 #define NOJTYPE 2
@@ -18,6 +19,10 @@ struct SymbolTable
     int value;
     char *symbol;
 };
+
+char *instructions[] = {"add", "sub", "slt", "or", "nand",
+                        "addi", "slti", "ori", "lui", "lw", "sw", "beq", "jalr",
+                        "j", "halt"};
 /* every time an instruction is read, it will be tokenized and each   *
  * token will reside in one element of this structure               */
 struct Instruction
@@ -42,5 +47,8 @@ void formInst(struct Instruction *, FILE *);
 int hex2int(char *);
 void int2hex16(char *, int);
 
+int isTokenAnInstruction(char *);
+void removeTrailingNewLine(char *);
+
 /* parses the instruction and extracts the tokens */
-struct Instruction tokenize(char* line);
+struct Instruction tokenize(char *line);

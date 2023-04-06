@@ -10,14 +10,10 @@ void main(int argc, char **argv)
     char *line;
     char *token;
     char *lines[TXT_SEG_SIZE];
-    unsigned short int sp;
+    unsigned int sp;
 
     // lines = (char **)malloc(15 * sizeof(char *));
 
-    char *instructions[] = {"add", "sub", "slt", "or", "nand",
-                            "addi", "slti", "ori", "lui", "lw", "sw", "beq", "jalr",
-                            "j", "halt"};
-    int instruction_count = 0;
     char hex_table[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
     i = 0;
@@ -45,64 +41,48 @@ void main(int argc, char **argv)
         exit(1);
     }
 
-    while (!feof(assem_file))
-    {
-        fgets(line, LINE_SIZE, assem_file);
-        if (strcmp(line, "\n") != 0)
-        {
-
-            strcpy(lines[instruction_count], line);
-            instruction_count++;
-        }
-    }
-
-    sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (instruction_count));
+    sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
+    sym_table_size = fillSymTab(sym_table, assem_file);
 
     fclose(assem_file);
     fclose(machine_file);
 }
-int findSymTabLen(FILE *inputFile)
-{
-    int count = 0;
-    size_t line_size;
-    char *line;
-    line = (char *)malloc(line_size);
-    while (getline(&line, &line_size, inputFile) != -1)
-    {
-        if ((line[0] == ' ') || (line[0] == '\t'))
-            ;
-        else
-            count++;
-    }
-    rewind(inputFile);
-    free(line);
-    return count;
-}
+
 int fillSymTab(struct SymbolTable *symT, FILE *inputFile)
 {
-    int lineNo = 0;
-    size_t line_size;
-    char *line;
-    int i = 0;
     char *token;
-    line = (char *)malloc(line_size);
-    while (getline(&line, &line_size, inputFile) != -1)
+    size_t lineSize = LINE_SIZE;
+    char *line = (char *)malloc(lineSize * sizeof(char));
+    int i = 0;
+    char delimiter[4] = "\t ";
+    int symTabLen = 0;
+
+    while (getline(&line, &lineSize, inputFile) != -1)
     {
-        if ((line[0] == ' ') || (line[0] == '\t'))
-            ;
-        else
+        removeTrailingNewLine(line);
+
+        if (line == NULL || strcmp(line, "") == 0) continue;
+
+        token = strtok(line, delimiter);
+
+        if (token == NULL) continue;
+
+        int isInst = isTokenAnInstruction(token);
+
+        if (!isInst)
         {
-            token = strtok(line, "\t, ");
-            strcpy(symT[i].symbol, token);
-            symT[i].value = lineNo;
-            i++;
+            (symT + i)->symbol = malloc(strlen(token));
+            strcpy((symT + i)->symbol, token);
+            symT[i].value = i;
+            symTabLen++;
         }
-        lineNo++;
+        i++;
     }
     rewind(inputFile);
     free(line);
-    return lineNo;
+    return symTabLen;
 }
+
 int hex2int(char *hex)
 {
     int result = 0;
@@ -118,6 +98,7 @@ int hex2int(char *hex)
     }
     return (result);
 }
+
 void int2hex16(char *lower, int a)
 {
     sprintf(lower, "%X", a);
@@ -145,4 +126,25 @@ void int2hex16(char *lower, int a)
         lower[1] = lower[0];
         lower[0] = '0';
     }
+}
+
+int isTokenAnInstruction(char *str)
+{
+    if (str == NULL) return 0;
+
+    for (int i = 0; i < INST_CNT; i++)
+        if (strcmp(instructions[i], str) == 0) return 1;
+
+    return 0;
+}
+
+void removeTrailingNewLine(char *str)
+{
+    int i = 0;
+    while (str[i] != '\n')
+    {
+        if (str[i] == '\0') break;
+        i++;
+    }
+    str[i] = '\0';
 }

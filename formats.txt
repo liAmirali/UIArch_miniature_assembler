@@ -1,0 +1,14 @@
+1: (4 tokens)                           ADD add $3,$3,$1 # This adds things up
+
+2: (3 tokens with label)                SUB sub $3,$3,$1
+3: (3 tokens with comment)              or $3,$3,$1 # This ors the things
+4: (*3 tokens with no fields)           EXIT halt # Exits the program
+
+5: (2 tokens inst and fields)           sub $3,$3,$1
+6: (*2 tokens label and "halt" inst)    EXIT halt
+7: (*2 tokens "halt" inst and comment)  halt #this pops out from the program
+
+8: (*1 token - "halt" inst)             halt
+
+
+* halt specific

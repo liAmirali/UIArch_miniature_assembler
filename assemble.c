@@ -46,10 +46,13 @@ void main(int argc, char **argv)
     int status = compile(assem_file, machine_file);
 
     if (status == 0)
-        printf("Compiled successfully.");
+        printf("Compiled successfully.\n");
     else
-        printf("Compilation ended with an error.");
+        printf("Compilation ended with an error.\n");
 
+    free(line);
+    free(curr_instruction);
+    free(sym_table);
     fclose(assem_file);
     fclose(machine_file);
 }
@@ -60,6 +63,7 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
     char *line = (char *)malloc(line_size * sizeof(char));
     char **tokens;
     size_t token_count;
+    int are_tokens_valid;
 
     tokens = (char **)malloc(4 * sizeof(char *));
     for (int i = 0; i < 4; i++)
@@ -85,6 +89,16 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         }
         printf("\n");
         // ####TEMP CODE#####
+
+        are_tokens_valid = check_valid_tokens(tokens, token_count);
+        if (!are_tokens_valid)
+        {
+            init_error();
+            printf("An error occurred while validating the statement tokens in the following line:\n%s\n", line);
+            reset_color();
+
+            return 1;
+        }
 
         compile_tokens(tokens, token_count);
     }
@@ -173,16 +187,10 @@ size_t tokenize(char *line, char **tokens)
     return token_count;
 }
 
-size_t parse_fields_token(char *token, char **parsed)
-{
-    char *fields[3];
-    char *curr_field;
-}
-
 struct Instruction *compile_tokens(char **tokens, size_t token_count)
 {
     char *instruction;
-    char *fields_token;
+    char *fields_token = NULL;
     char *fields[3];
     char *field;
     size_t expected_field_count;
@@ -194,39 +202,147 @@ struct Instruction *compile_tokens(char **tokens, size_t token_count)
     return compiled_instruction;
 }
 
-// int check_valid_tokens(char *tokens[4], size_t token_count)
-// {
-//     // Parses the instruction and fields and checks the format
-//     if (is_instruction(tokens[0]))
-//     {
-//         instruction = tokens[0];
+int check_valid_tokens(char **tokens, size_t token_count)
+{
+    char *instruction;
+    char *fields_token = NULL;
+    char **fields;
+    size_t fields_count;
+    size_t expected_fields_count;
 
-//         expected_field_count = get_number_of_fields(instruction);
+    // Parses the instruction and fields and checks the format
+    switch (token_count)
+    {
+    case 4:
+        // format 1
+        instruction = tokens[1];
+        fields_token = tokens[2];
+        break;
+    case 3:
+        if (strcmp(tokens[1], "halt") == 0 && tokens[2][0] == '#') // format 4
+        {
+            instruction = "halt";
+        }
+        else if (tokens[2][0] == '#') // format 3
+        {
+            instruction = tokens[0];
+            fields_token = tokens[1];
+        }
+        else // format 2
+        {
+            instruction = tokens[1];
+            fields_token = tokens[2];
+        }
+        break;
+    case 2:
+        if (strcmp(tokens[1], "halt") == 0) // format 6
+        {
+            instruction = tokens[1];
+        }
+        else if (strcmp(tokens[0], "halt") == 0 && tokens[1][0] == '#') // format 7
+        {
+            instruction = tokens[0];
+        }
+        else // format 5
+        {
+            instruction = tokens[0];
+            fields_token = tokens[1];
+        }
+        break;
+    case 1:
+        instruction = tokens[0];
+    default:
+        init_error();
+        printf("Invalid number of tokens.\n");
+        printf("Tokens can only be in a range of 1-4 but received %d\n", token_count);
+        reset_color();
+        break;
+    }
 
-//         if (expected_field_count == 0 && tokens[1][0] != '#')
-//         {
-//             print_error("Exptected no toke")
-//         }
+    // #### TEMP CODE ####
+    printf("Detected instruction: %s\n", instruction);
+    if (fields_token != NULL)
+        printf("Fields token: %s\n", fields_token);
+    else
+        printf("No fields token was detected\n");
+    // #### TEMP CODE ####
 
-//         parsed_field_count = parse_fields_token(tokens[1], fields);
+    if (!is_instruction(instruction))
+    {
+        init_error();
+        printf("The token \"%s\", which was detected to be the instruction, is not valid.\n", instruction);
+        reset_color();
 
-//         if (parse_fields_token != expected_field_count)
-//         {
-//             print_error("Number of expected fields didn't match the expected amount.");
-//             return NULL;
-//         }
-//     }
-//     else if (is_instruction(tokens[1]))
-//     {
-//         instruction = tokens[1];
-//         expected_field_count = get_number_of_fields(instruction);
-//     }
-//     else
-//     {
-//         print_error("Invalid statement.");
-//         return NULL;
-//     }
-// }
+        return 0;
+    }
+
+    fields_count = 0;
+    if (fields_token != NULL)
+    {
+        fields = (char **)malloc(3 * sizeof(char *));
+        for (int i = 0; i < 3; i++)
+            fields[i] = (char *)malloc(16 * sizeof(char));
+
+        fields_count = parse_fields_token(fields_token, fields);
+
+        // ####TEMP CODE#####
+        printf("fields_count=%d\n", fields_count);
+        for (int i = 0; i < fields_count; i++)
+        {
+            printf("fields[%d]=%s\t", i, fields[i]);
+        }
+        printf("\n");
+        // ####TEMP CODE#####
+    }
+
+    expected_fields_count = get_number_of_fields(instruction);
+
+    if (expected_fields_count != fields_count)
+    {
+        init_error();
+        printf("The given fields didn't match the number of expected fields to read.\n");
+        printf("Expected: %d, but was given: %d\n", expected_fields_count, fields_count);
+        printf("Detected fields: \"%s\"\n", fields_token);
+        reset_color();
+    }
+
+    for (int i = 0; i < 3; i++)
+        free(fields[i]);
+    free(fields);
+
+    return 1;
+}
+
+size_t parse_fields_token(char *fields_token, char **parsed)
+{
+    char *curr_field;
+    char *temp_tokens = (char *)malloc(sizeof(fields_token));
+    size_t fields_count;
+    int i;
+
+    strcpy(temp_tokens, fields_token);
+
+    fields_count = 0;
+    i = 0;
+    curr_field = strtok(temp_tokens, ",");
+    while (curr_field != NULL)
+    {
+        fields_count++;
+        strcpy(parsed[i++], curr_field);
+
+        if (fields_count == 4)
+        {
+            init_error();
+            printf("Too many fields were parsed.");
+            reset_color();
+            return -1;
+        }
+
+        curr_field = strtok(NULL, ",");
+    }
+
+    return fields_count;
+}
 
 int get_number_of_fields(char *instruction)
 {

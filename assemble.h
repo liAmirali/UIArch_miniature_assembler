@@ -61,8 +61,13 @@ void remove_trailing_nline(char *);
 /**
  * Returns an instruction struct with given tokens
  */
-struct Instruction *compile_tokens(char *[4], size_t token_count);
-
+struct Instruction *compile_tokens(char **, size_t token_count);
+/**
+ * Checks the correctness of tokens
+ * 1- The instruction has to be a valid existing instruction
+ * 2- The fields count must match the instruction mnemonic
+*/
+int check_valid_tokens(char **tokens, size_t token_count);
 /**
  * Parses the instruction and extracts the tokens
  * Returns the token count from the return value
@@ -70,7 +75,7 @@ struct Instruction *compile_tokens(char *[4], size_t token_count);
  */
 size_t tokenize(char *, char **);
 /**
- * Parses the fields seperated with commas
+ * Parses the fields separated with commas
  */
 size_t parse_fields_token(char *token, char **parsed);
 /**

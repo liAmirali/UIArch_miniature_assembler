@@ -77,3 +77,7 @@ size_t parse_fields_token(char *token, char **parsed);
  * Checks if the field count matches with the instruction
  */
 int get_number_of_fields(char *instruction);
+/**
+ * Prints the ERR_MSG in a red color with [ERR] prefix
+*/
+void print_error(char *err_msg);

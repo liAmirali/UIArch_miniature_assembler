@@ -142,8 +142,8 @@ size_t tokenize(char *line, char *tokens[4])
             else
             {
                 // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
-                printf("Instruction is not in the following format:");
-                printf("label<white>instruction<white>field0,field1,field2<white>#comments");
+                print_error("Instruction is not in the following format:");
+                print_error("label<white>instruction<white>field0,field1,field2<white>#comments");
                 return 0;
             }
         }
@@ -190,14 +190,14 @@ struct Instruction *compile_instruction(char *tokens[4], size_t token_count)
 
 //         if (expected_field_count == 0 && tokens[1][0] != '#')
 //         {
-//             printf("Exptected no toke")
+//             print_error("Exptected no toke")
 //         }
 
 //         parsed_field_count = parse_fields_token(tokens[1], fields);
 
 //         if (parse_fields_token != expected_field_count)
 //         {
-//             printf("Number of expected fields didn't match the expected amount.");
+//             print_error("Number of expected fields didn't match the expected amount.");
 //             return NULL;
 //         }
 //     }
@@ -208,7 +208,7 @@ struct Instruction *compile_instruction(char *tokens[4], size_t token_count)
 //     }
 //     else
 //     {
-//         printf("Invalid statement.");
+//         print_error("Invalid statement.");
 //         return NULL;
 //     }
 // }
@@ -292,4 +292,7 @@ void remove_trailing_nline(char *str)
 
 void print_error(char *err_msg)
 {
+    printf("\033[0;31m");
+    printf("[ERR]: %s", err_msg);
+    printf("\033[0m");
 }

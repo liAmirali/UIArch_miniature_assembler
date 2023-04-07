@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #define ITYPE 1
 #define JTYPE 2
 // sizing constants
+#define MAX_LABEL_LEN 6
 #define LINE_SIZE 72
 #define TXT_SEG_SIZE 8192
 /* this structure is defined to hold ever entity of symbol table    *
@@ -28,64 +30,98 @@ char *instructions[] = {"add", "sub", "slt", "or", "nand",
 struct Instruction
 {
     size_t instType; // 0 means r type, 1 means i type and 2 means j type
-    size_t intInst;
-    char *mnemonic;
     char inst[9];
     int rs;
     int rt;
     int rd;
     int imm;
-    int PC;
+    // int PC; ?
 };
+
+/**
+ * Scans the assembly code entirely and writes the compiled code into the machine code file
+ * @return 0 for success or other integers for any error
+ */
+int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *, size_t);
+
 /**
  * Fills up the symbol table
  */
-int fill_symtab(struct SymbolTable *, FILE *);
-/**
- * Scans the assembly code entirely and writes the compiled code into the machine code file
- * @return 0 for succss and integers for any error
- */
-int compile(FILE *assembly_file, FILE *machine_code_file);
+size_t fill_symtab(struct SymbolTable *, FILE *);
 
-// ?
-int hex2int(char *);
-void int2hex16(char *, int);
 /**
- * Checks if a token is a valid instruction among the 15 defined instructions
+ * Searches through the symbol table and returns the value inside it
  */
-int is_instruction(char *);
+int get_label_value(struct SymbolTable *, size_t, char *);
+
 /**
- * Removes the new line if it is the last character
+ * Searches through the symbol table and checks if the label exists or not
  */
-void remove_trailing_nline(char *);
-/**
- * Returns an instruction struct with given tokens
- */
-struct Instruction *compile_tokens(char **, size_t token_count);
-/**
- * Checks the correctness of tokens
- * 1- The instruction has to be a valid existing instruction
- * 2- The fields count must match the instruction mnemonic
-*/
-int check_valid_tokens(char **tokens, size_t token_count);
+int label_exists(struct SymbolTable *, size_t, char *);
+
 /**
  * Parses the instruction and extracts the tokens
  * Returns the token count from the return value
  * and puts the actual tokens in the char array passed to the arguments
  */
 size_t tokenize(char *, char **);
+
+/**
+ * Returns an instruction struct with given tokens
+ */
+struct Instruction *form_instruction(char *instruction, char **fields, struct SymbolTable *symbol_table, size_t symbol_table_size);
+
+/**
+ * Checks the correctness of tokens
+ * 1- The instruction has to be a valid existing instruction
+ * 2- The fields count must match the instruction mnemonic
+ */
+int check_valid_tokens(char **tokens, size_t token_count, char *instruction, char **fields);
+
 /**
  * Parses the fields separated with commas
  */
 size_t parse_fields_token(char *token, char **parsed);
+
 /**
  * Checks if the field count matches with the instruction
  */
 int get_number_of_fields(char *instruction);
+
+/**
+ * Returns the number of instruction type
+ */
+size_t get_instruction_type(char *instruction);
+
+// ?
+int hex2int(char *);
+void int2hex16(char *, int);
+
+/**
+ * Checks if a token is a valid instruction among the 15 defined instructions
+ */
+int is_instruction(char *);
+
+/**
+ * Checks if the string is a valid label name
+ */
+int is_label_name_valid(char *);
+
+/**
+ * Checks if the string is contains only digits
+ */
+int is_numeric(char *);
+
+/**
+ * Removes the new line if it is the last character
+ */
+void remove_trailing_nline(char *);
+
 /**
  * Initializes the console to print red
  */
 void init_error();
+
 /**
  * Resets console colors
  */

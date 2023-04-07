@@ -4,7 +4,7 @@ void main(int argc, char **argv)
 {
     FILE *assem_file, *machine_file, *fopen();
     struct SymbolTable *sym_table;
-    int sym_table_size;
+    size_t sym_table_size;
     int i, j, found;
     struct Instruction *curr_instruction;
     char *line;
@@ -43,12 +43,12 @@ void main(int argc, char **argv)
 
     sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
     sym_table_size = fill_symtab(sym_table, assem_file);
-    int status = compile(assem_file, machine_file);
+    int status = compile(assem_file, machine_file, sym_table, sym_table_size);
 
     if (status == 0)
         printf("Compiled successfully.\n");
     else
-        printf("Compilation ended with an error.\n");
+        printf("Compilation ended with errors.\n");
 
     free(line);
     free(curr_instruction);
@@ -57,7 +57,7 @@ void main(int argc, char **argv)
     fclose(machine_file);
 }
 
-int compile(FILE *assembly_file, FILE *machine_code_file)
+int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *symbol_table, size_t symbol_table_size)
 {
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
@@ -65,9 +65,17 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
     size_t token_count;
     int are_tokens_valid;
 
+    char *detected_instruction;
+    char **detected_fields;
+
     tokens = (char **)malloc(4 * sizeof(char *));
     for (int i = 0; i < 4; i++)
         tokens[i] = (char *)malloc(16 * sizeof(char));
+
+    detected_instruction = (char *)malloc(5 * sizeof(char));
+    detected_fields = (char **)malloc(3 * sizeof(char *));
+    for (int i = 0; i < 3; i++)
+        detected_fields[i] = (char *)malloc(10 * sizeof(char));
 
     while (getline(&line, &line_size, assembly_file) != -1)
     {
@@ -90,7 +98,7 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         printf("\n");
         // ####TEMP CODE#####
 
-        are_tokens_valid = check_valid_tokens(tokens, token_count);
+        are_tokens_valid = check_valid_tokens(tokens, token_count, detected_instruction, detected_fields);
         if (!are_tokens_valid)
         {
             init_error();
@@ -100,20 +108,20 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
             return 1;
         }
 
-        compile_tokens(tokens, token_count);
+        form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
     }
 
     return 0;
 }
 
-int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
+size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 {
     char *token;
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
     int i = 0;
     char delimiter[4] = "\t ";
-    int symbol_table_size = 0;
+    size_t symbol_table_size = 0;
 
     while (getline(&line, &line_size, inputFile) != -1)
     {
@@ -137,6 +145,22 @@ int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
     rewind(inputFile);
     free(line);
     return symbol_table_size;
+}
+
+int get_label_value(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
+{
+    for (int i = 0; i, symbol_table_size; i++)
+        if (strcmp(symbol_table->symbol, label) == 0) return symbol_table->value;
+
+    return 0;
+}
+
+int label_exists(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
+{
+    for (int i = 0; i, symbol_table_size; i++)
+        if (strcmp(symbol_table->symbol, label) == 0) return 1;
+
+    return 0;
 }
 
 size_t tokenize(char *line, char **tokens)
@@ -187,26 +211,86 @@ size_t tokenize(char *line, char **tokens)
     return token_count;
 }
 
-struct Instruction *compile_tokens(char **tokens, size_t token_count)
+struct Instruction *form_instruction(char *instruction, char **fields, struct SymbolTable *symbol_table, size_t symbol_table_size)
 {
-    char *instruction;
-    char *fields_token = NULL;
-    char *fields[3];
-    char *field;
-    size_t expected_field_count;
-    size_t parsed_field_count;
-    int i;
-
     struct Instruction *compiled_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
+
+    strcpy(compiled_instruction->inst, instruction);
+    compiled_instruction->instType = get_instruction_type(instruction);
+    if (compiled_instruction->instType == 0)
+    {
+        compiled_instruction->rd = atoi(fields[0]);
+        compiled_instruction->rs = atoi(fields[1]);
+        compiled_instruction->rt = atoi(fields[2]);
+    }
+    else if (compiled_instruction->instType == 1)
+    {
+        if (strcpy(instruction, "lui") == 0)
+        {
+            compiled_instruction->rt = atoi(fields[0]);
+            compiled_instruction->imm = atoi(fields[1]);
+        }
+        else if (strcpy(instruction, "jalr") == 0)
+        {
+            compiled_instruction->rt = atoi(fields[0]);
+            compiled_instruction->rs = atoi(fields[1]);
+            compiled_instruction->imm = 0;
+        }
+        else if (strcpy(instruction, "lw") == 0 || strcpy(instruction, "sw") == 0 || strcpy(instruction, "beq") == 0)
+        {
+            if (is_numeric(fields[2]))
+                compiled_instruction->imm = atoi(fields[2]);
+            else if (label_exists(symbol_table, symbol_table_size, fields[2]))
+            {
+                compiled_instruction->imm = get_label_value(symbol_table, symbol_table_size, fields[2]);
+            }
+            else
+            {
+                init_error();
+                printf("Label \"%s\" was not found in the symbol table.\n", fields[2]);
+                reset_color();
+                return NULL;
+            }
+        }
+        else
+        {
+            compiled_instruction->rt = atoi(fields[0]);
+            compiled_instruction->rs = atoi(fields[1]);
+            compiled_instruction->imm = atoi(fields[2]);
+        }
+    }
+    else if (compiled_instruction->instType == 2)
+    {
+        compiled_instruction->rt = 0;
+        if (strcpy(instruction, "halt") == 0)
+            compiled_instruction->imm = 0;
+        else if (strcpy(instruction, "j") == 0)
+        {
+            if (label_exists(symbol_table, symbol_table_size, fields[2]))
+                compiled_instruction->imm = get_label_value(symbol_table, symbol_table_size, fields[2]);
+            else
+            {
+                init_error();
+                printf("Label \"%s\" was not found in the symbol table.\n", fields[2]);
+                reset_color();
+                return NULL;
+            }
+        }
+    }
+    else
+    {
+        init_error();
+        printf("[COMPILER ERROR]: %d is an invalid instruction type number for instruction %s.\n", compiled_instruction->instType, instruction);
+        reset_color();
+        return NULL;
+    }
 
     return compiled_instruction;
 }
 
-int check_valid_tokens(char **tokens, size_t token_count)
+int check_valid_tokens(char **tokens, size_t token_count, char *instruction, char **fields)
 {
-    char *instruction;
-    char *fields_token = NULL;
-    char **fields;
+    char *fields_token;
     size_t fields_count;
     size_t expected_fields_count;
 
@@ -215,42 +299,42 @@ int check_valid_tokens(char **tokens, size_t token_count)
     {
     case 4:
         // format 1
-        instruction = tokens[1];
+        strcpy(instruction, tokens[1]);
         fields_token = tokens[2];
         break;
     case 3:
         if (strcmp(tokens[1], "halt") == 0 && tokens[2][0] == '#') // format 4
         {
-            instruction = "halt";
+            strcpy(instruction, "halt");
         }
         else if (tokens[2][0] == '#') // format 3
         {
-            instruction = tokens[0];
+            strcpy(instruction, tokens[0]);
             fields_token = tokens[1];
         }
         else // format 2
         {
-            instruction = tokens[1];
+            strcpy(instruction, tokens[1]);
             fields_token = tokens[2];
         }
         break;
     case 2:
         if (strcmp(tokens[1], "halt") == 0) // format 6
         {
-            instruction = tokens[1];
+            strcpy(instruction, tokens[1]);
         }
         else if (strcmp(tokens[0], "halt") == 0 && tokens[1][0] == '#') // format 7
         {
-            instruction = tokens[0];
+            strcpy(instruction, tokens[0]);
         }
         else // format 5
         {
-            instruction = tokens[0];
+            strcpy(instruction, tokens[0]);
             fields_token = tokens[1];
         }
         break;
     case 1:
-        instruction = tokens[0];
+        strcpy(instruction, tokens[0]);
     default:
         init_error();
         printf("Invalid number of tokens.\n");
@@ -279,10 +363,6 @@ int check_valid_tokens(char **tokens, size_t token_count)
     fields_count = 0;
     if (fields_token != NULL)
     {
-        fields = (char **)malloc(3 * sizeof(char *));
-        for (int i = 0; i < 3; i++)
-            fields[i] = (char *)malloc(16 * sizeof(char));
-
         fields_count = parse_fields_token(fields_token, fields);
 
         // ####TEMP CODE#####
@@ -305,10 +385,6 @@ int check_valid_tokens(char **tokens, size_t token_count)
         printf("Detected fields: \"%s\"\n", fields_token);
         reset_color();
     }
-
-    for (int i = 0; i < 3; i++)
-        free(fields[i]);
-    free(fields);
 
     return 1;
 }
@@ -348,12 +424,29 @@ int get_number_of_fields(char *instruction)
 {
     if (!is_instruction(instruction)) return -1;
 
-    if (instruction == "lui" || instruction == "offset")
+    if (instruction == "lui" || instruction == "jalr")
         return 2;
-    else if (instruction == "offset")
+    else if (instruction == "j")
         return 1;
     else if (instruction == "halt")
         return 0;
+    else
+        return 3;
+}
+
+size_t get_instruction_type(char *instruction)
+{
+    if (strcmp(instruction, "add") == 0 || strcmp(instruction, "sub") == 0 ||
+        strcmp(instruction, "slt") == 0 || strcmp(instruction, "or") == 0 ||
+        strcmp(instruction, "nand") == 0)
+        return 0;
+    else if (strcmp(instruction, "addi") == 0 || strcmp(instruction, "slti") == 0 ||
+             strcmp(instruction, "ori") == 0 || strcmp(instruction, "lui") == 0 ||
+             strcmp(instruction, "lw") == 0 || strcmp(instruction, "sw") == 0 ||
+             strcmp(instruction, "beq") == 0 || strcmp(instruction, "jalr") == 0)
+        return 1;
+    else if (strcmp(instruction, "j") == 0 || strcmp(instruction, "halt") == 0)
+        return 2;
     else
         return 3;
 }
@@ -411,6 +504,28 @@ int is_instruction(char *str)
         if (strcmp(instructions[i], str) == 0) return 1;
 
     return 0;
+}
+
+int is_label_name_valid(char *label)
+{
+    if (strlen(label) < MAX_LABEL_LEN) return 0;
+
+    if (!isalpha(label[0])) return 0;
+
+    for (int i = 1; i < strlen(label); i++)
+        if (!isalpha(label[i]) && !isdigit(label[i])) return 0;
+
+    return 1;
+}
+
+int is_numeric(char *str)
+{
+    size_t size = strlen(str);
+
+    for (int i = 0; i < size; i++)
+        if (!isdigit(str[i])) return 0;
+
+    return 1;
 }
 
 void remove_trailing_nline(char *str)

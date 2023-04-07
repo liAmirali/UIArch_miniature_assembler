@@ -72,6 +72,10 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         if (line == NULL || strcmp(line, "") == 0) continue;
 
         token_count = tokenize(line, tokens);
+        if (token_count < 0)
+            return 1;
+        else if (token_count == 0)
+            continue;
 
         // ####TEMP CODE#####
         printf("token_count=%d\n", token_count);
@@ -82,7 +86,7 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         printf("\n");
         // ####TEMP CODE#####
 
-        // compile_instruction(tokens, token_count);
+        compile_tokens(tokens, token_count);
     }
 
     return 0;
@@ -159,7 +163,7 @@ size_t tokenize(char *line, char **tokens)
                 printf("Statement is not in the following format:\n");
                 printf("label<white>instruction<white>field0,field1,field2<white>#comments\n");
                 reset_color();
-                return 0;
+                return -1;
             }
         }
 
@@ -175,7 +179,7 @@ size_t parse_fields_token(char *token, char **parsed)
     char *curr_field;
 }
 
-struct Instruction *compile_instruction(char *tokens[4], size_t token_count)
+struct Instruction *compile_tokens(char **tokens, size_t token_count)
 {
     char *instruction;
     char *fields_token;

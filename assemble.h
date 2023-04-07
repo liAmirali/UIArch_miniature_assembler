@@ -61,7 +61,7 @@ void remove_trailing_nline(char *);
 /**
  * Returns an instruction struct with given tokens
  */
-struct Instruction *compile_instruction(char *[4], size_t token_count);
+struct Instruction *compile_tokens(char *[4], size_t token_count);
 
 /**
  * Parses the instruction and extracts the tokens

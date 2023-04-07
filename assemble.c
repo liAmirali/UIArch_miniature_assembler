@@ -58,10 +58,14 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
 {
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
-    char *tokens[4];
+    char **tokens;
     size_t token_count;
 
-    while (getline(&line, &line_size, assembly_file))
+    tokens = (char **)malloc(4 * sizeof(char *));
+    for (int i = 0; i < 4; i++)
+        tokens[i] = (char *)malloc(16 * sizeof(char));
+
+    while (getline(&line, &line_size, assembly_file) != -1)
     {
         remove_trailing_nline(line);
 
@@ -70,15 +74,18 @@ int compile(FILE *assembly_file, FILE *machine_code_file)
         token_count = tokenize(line, tokens);
 
         // ####TEMP CODE#####
-        printf("token_count=%d", token_count);
+        printf("token_count=%d\n", token_count);
         for (int i = 0; i < token_count; i++)
         {
-            printf("tokens[%d]=%s", i, tokens[i]);
+            printf("tokens[%d]=%s\t", i, tokens[i]);
         }
+        printf("\n");
         // ####TEMP CODE#####
 
         // compile_instruction(tokens, token_count);
     }
+
+    return 0;
 }
 
 int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
@@ -114,7 +121,7 @@ int fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
     return symbol_table_size;
 }
 
-size_t tokenize(char *line, char *tokens[4])
+size_t tokenize(char *line, char **tokens)
 {
     /**
      * label<white>instruction<white>field0,field1,field2<white>#comments
@@ -127,11 +134,16 @@ size_t tokenize(char *line, char *tokens[4])
     size_t token_count = 0;
     char *curr_token;
     int i = 0;
+    char *temp_line = (char *)malloc(line_size * sizeof(char));
+    strcpy(temp_line, line);
 
-    curr_token = strtok(line, delimiter);
+    curr_token = strtok(temp_line, delimiter);
     while (curr_token != NULL)
     {
         token_count++;
+        strcpy(tokens[i++], curr_token);
+        printf("%s\n", curr_token);
+
         if (token_count == 4)
         {
             if (tokens[3][0] == '#')
@@ -142,15 +154,14 @@ size_t tokenize(char *line, char *tokens[4])
             else
             {
                 // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
-                print_error("Instruction is not in the following format:");
-                print_error("label<white>instruction<white>field0,field1,field2<white>#comments");
+                init_error();
+                printf("Error in tokenizing the following line:\n%s\n", line);
+                printf("Statement is not in the following format:\n");
+                printf("label<white>instruction<white>field0,field1,field2<white>#comments\n");
+                reset_color();
                 return 0;
             }
         }
-
-        strcpy(tokens[i++], curr_token);
-
-        printf("%s\n", curr_token);
 
         curr_token = strtok(NULL, delimiter);
     }
@@ -290,9 +301,12 @@ void remove_trailing_nline(char *str)
     if (str[size - 1] == '\n') str[size - 1] = '\0';
 }
 
-void print_error(char *err_msg)
+void init_error()
 {
-    printf("\033[0;31m");
-    printf("[ERR]: %s", err_msg);
+    printf("\033[0;31m[ERR]: ");
+}
+
+void reset_color()
+{
     printf("\033[0m");
 }

@@ -68,7 +68,7 @@ struct Instruction *compile_instruction(char *[4], size_t token_count);
  * Returns the token count from the return value
  * and puts the actual tokens in the char array passed to the arguments
  */
-size_t tokenize(char *, char *[4]);
+size_t tokenize(char *, char **);
 /**
  * Parses the fields seperated with commas
  */
@@ -78,6 +78,10 @@ size_t parse_fields_token(char *token, char **parsed);
  */
 int get_number_of_fields(char *instruction);
 /**
- * Prints the ERR_MSG in a red color with [ERR] prefix
-*/
-void print_error(char *err_msg);
+ * Initializes the console to print red
+ */
+void init_error();
+/**
+ * Resets console colors
+ */
+void reset_color();

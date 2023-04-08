@@ -5,22 +5,6 @@ void main(int argc, char **argv)
     FILE *assem_file, *machine_file, *fopen();
     struct SymbolTable *sym_table;
     size_t sym_table_size;
-    int i, j, found;
-    struct Instruction *curr_instruction;
-    char *line;
-    char *token;
-    char *lines[TXT_SEG_SIZE];
-    unsigned int stack_pointer;
-
-    // lines = (char **)malloc(15 * sizeof(char *));
-
-    char hex_table[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-
-    i = 0;
-    j = 0;
-    line = (char *)malloc(LINE_SIZE);
-    curr_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
-    stack_pointer = 65536;
 
     if (argc < 3)
     {
@@ -50,8 +34,6 @@ void main(int argc, char **argv)
     else
         printf("Compilation ended with errors.\n");
 
-    free(line);
-    free(curr_instruction);
     free(sym_table);
     fclose(assem_file);
     fclose(machine_file);
@@ -65,8 +47,12 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
     size_t token_count;
     int are_tokens_valid;
 
+    struct Instruction *instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
+
     char *detected_instruction;
     char **detected_fields;
+
+    char instruction_hex[9];
 
     tokens = (char **)malloc(4 * sizeof(char *));
     for (int i = 0; i < 4; i++)
@@ -108,7 +94,11 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
             return 1;
         }
 
-        form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
+        instruction = form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
+
+        get_instruction_hex(instruction, instruction_hex);
+
+        fprintf(machine_code_file, "%d\n", hex2int(instruction_hex));
     }
 
     return 0;
@@ -135,6 +125,7 @@ size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 
         if (!is_instruction(token))
         {
+            printf("LABEL:%s\n", token);
             (symbol_table + i)->symbol = malloc(strlen(token));
             strcpy((symbol_table + i)->symbol, token);
             symbol_table[i].value = i;
@@ -228,6 +219,7 @@ struct Instruction *form_instruction(char *instruction, char **fields, struct Sy
         if (strcpy(instruction, "lui") == 0)
         {
             compiled_instruction->rt = atoi(fields[0]);
+            compiled_instruction->rs = 0;
             compiled_instruction->imm = atoi(fields[1]);
         }
         else if (strcpy(instruction, "jalr") == 0)
@@ -286,6 +278,51 @@ struct Instruction *form_instruction(char *instruction, char **fields, struct Sy
     }
 
     return compiled_instruction;
+}
+
+void get_instruction_hex(struct Instruction *instruction, char hex[9])
+{
+    char lower[5];
+
+    hex[8] = '\0';
+    hex[0] = '0';
+    hex[1] = get_hex_digit(get_instruction_opcode(instruction->inst));
+
+    if (instruction->instType == 0)
+    {
+        hex[2] = get_hex_digit(instruction->rs);
+        hex[3] = get_hex_digit(instruction->rt);
+        hex[4] = get_hex_digit(instruction->rd);
+        hex[5] = '0';
+        hex[6] = '0';
+        hex[7] = '0';
+    }
+    else if (instruction->instType == 1)
+    {
+        hex[2] = get_hex_digit(instruction->rs);
+        hex[3] = get_hex_digit(instruction->rt);
+        int2hex16(lower, instruction->imm);
+        hex[4] = lower[0];
+        hex[5] = lower[1];
+        hex[6] = lower[2];
+        hex[7] = lower[3];
+    }
+    else if (instruction->instType == 2)
+    {
+        hex[2] = '0';
+        hex[3] = '0';
+        int2hex16(lower, instruction->imm);
+        hex[4] = lower[0];
+        hex[5] = lower[1];
+        hex[6] = lower[2];
+        hex[7] = lower[3];
+    }
+    else
+    {
+        init_error();
+        printf("[COMPILER ERROR]: %d is an invalid instruction type number.\n", instruction->instType);
+        reset_color();
+    }
 }
 
 int check_valid_tokens(char **tokens, size_t token_count, char *instruction, char **fields)
@@ -451,6 +488,14 @@ size_t get_instruction_type(char *instruction)
         return 3;
 }
 
+int get_instruction_opcode(char *instruction)
+{
+    for (int i = 0; i < INST_CNT; i++)
+        if (strcmp(instructions[i], instruction) == 0) return i;
+
+    return -1;
+}
+
 int hex2int(char *hex)
 {
     int result = 0;
@@ -494,6 +539,12 @@ void int2hex16(char *lower, int a)
         lower[1] = lower[0];
         lower[0] = '0';
     }
+}
+
+char get_hex_digit(int n)
+{
+    char hex_table[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    return hex_table[n % 16];
 }
 
 int is_instruction(char *str)

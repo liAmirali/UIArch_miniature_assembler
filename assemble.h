@@ -25,6 +25,7 @@ struct SymbolTable
 char *instructions[] = {"add", "sub", "slt", "or", "nand",
                         "addi", "slti", "ori", "lui", "lw", "sw", "beq", "jalr",
                         "j", "halt"};
+char *directives[] = {".fill", ".space"};
 /* every time an instruction is read, it will be tokenized and each   *
  * token will reside in one element of this structure               */
 struct Instruction
@@ -72,6 +73,11 @@ size_t tokenize(char *, char **);
 struct Instruction *form_instruction(char *instruction, char **fields, struct SymbolTable *symbol_table, size_t symbol_table_size);
 
 /**
+ * Returns the hex equivalent of the instruction
+ */
+void get_instruction_hex(struct Instruction *, char[9]);
+
+/**
  * Checks the correctness of tokens
  * 1- The instruction has to be a valid existing instruction
  * 2- The fields count must match the instruction mnemonic
@@ -93,9 +99,19 @@ int get_number_of_fields(char *instruction);
  */
 size_t get_instruction_type(char *instruction);
 
+/**
+ * Returns the opcode of the instruction
+ */
+int get_instruction_opcode(char *instruction);
+
 // ?
 int hex2int(char *);
 void int2hex16(char *, int);
+
+/**
+ * Returns hex equivalent of an int between 0-15
+ */
+char get_hex_digit(int n);
 
 /**
  * Checks if a token is a valid instruction among the 15 defined instructions

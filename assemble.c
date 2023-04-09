@@ -4,6 +4,7 @@ void main(int argc, char **argv)
 {
     FILE *assem_file, *machine_file, *fopen();
     struct SymbolTable *sym_table;
+    int text_data_seg[TXT_SEG_SIZE];
     size_t sym_table_size;
 
     if (argc < 3)
@@ -27,7 +28,7 @@ void main(int argc, char **argv)
 
     sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
     sym_table_size = fill_symtab(sym_table, assem_file);
-    int status = compile(assem_file, machine_file, sym_table, sym_table_size);
+    int status = compile(assem_file, machine_file, sym_table, sym_table_size, text_data_seg);
 
     if (status == 0)
         printf("Compiled successfully.\n");
@@ -39,13 +40,14 @@ void main(int argc, char **argv)
     fclose(machine_file);
 }
 
-int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *symbol_table, size_t symbol_table_size)
+int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *symbol_table, size_t symbol_table_size, int txt_seg[TXT_SEG_SIZE])
 {
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
     char **tokens;
     size_t token_count;
     int are_tokens_valid;
+    int data_seg_top = 0;
 
     struct Instruction *instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
 
@@ -94,11 +96,50 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
             return 1;
         }
 
-        instruction = form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
+        if (is_instruction(detected_instruction))
+        {
+            instruction = form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
 
-        get_instruction_hex(instruction, instruction_hex);
+            get_instruction_hex(instruction, instruction_hex);
+            int instruction_decimal = hex2int(instruction_hex);
+            txt_seg[data_seg_top] = instruction_decimal;
+            fprintf(machine_code_file, "%d\n", instruction_decimal);
 
-        fprintf(machine_code_file, "%d\n", hex2int(instruction_hex));
+            data_seg_top++;
+        }
+        else if (is_directive(detected_instruction))
+        {
+            int value;
+            if (is_numeric(detected_fields[0]))
+                value = atoi(detected_fields[0]);
+            else if (label_exists(symbol_table, symbol_table_size, detected_fields[0]))
+                value = get_label_value(symbol_table, symbol_table_size, detected_fields[0]);
+            else
+            {
+                init_error();
+                printf("Label %s was not defined.", detected_fields[0]);
+                printf("Error was thrown in line: %s", line);
+                reset_color();
+                return 1;
+            }
+
+            if (strcmp(detected_instruction, ".fill") == 0)
+            {
+                txt_seg[data_seg_top] = value;
+                fprintf(machine_code_file, "%d\n", value);
+
+                data_seg_top++;
+            }
+            else if (strcmp(detected_instruction, ".space") == 0)
+            {
+                for (int i = 0; i < value; i++)
+                {
+                    txt_seg[data_seg_top] = 0;
+                    // fprintf(machine_code_file, "%d\n", 0);
+                    data_seg_top++;
+                }
+            }
+        }
     }
 
     return 0;
@@ -109,7 +150,7 @@ size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
     char *token;
     size_t line_size = LINE_SIZE;
     char *line = (char *)malloc(line_size * sizeof(char));
-    int i = 0;
+    int line_number = 0;
     char delimiter[4] = "\t ";
     size_t symbol_table_size = 0;
 
@@ -123,15 +164,15 @@ size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 
         if (token == NULL) continue;
 
-        if (!is_instruction(token))
+        if (!is_instruction(token) && !is_directive(token))
         {
             printf("LABEL:%s\n", token);
-            (symbol_table + i)->symbol = malloc(strlen(token));
-            strcpy((symbol_table + i)->symbol, token);
-            symbol_table[i].value = i;
+            (symbol_table + symbol_table_size)->symbol = malloc(strlen(token) * sizeof(char));
+            strcpy((symbol_table + symbol_table_size)->symbol, token);
+            (symbol_table + symbol_table_size)->value = line_number;
             symbol_table_size++;
         }
-        i++;
+        line_number++;
     }
     rewind(inputFile);
     free(line);
@@ -141,7 +182,7 @@ size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
 int get_label_value(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
 {
     for (int i = 0; i, symbol_table_size; i++)
-        if (strcmp(symbol_table->symbol, label) == 0) return symbol_table->value;
+        if (strcmp((symbol_table + i)->symbol, label) == 0) return (symbol_table + i)->value;
 
     return 0;
 }
@@ -149,7 +190,7 @@ int get_label_value(struct SymbolTable *symbol_table, size_t symbol_table_size, 
 int label_exists(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
 {
     for (int i = 0; i, symbol_table_size; i++)
-        if (strcmp(symbol_table->symbol, label) == 0) return 1;
+        if (strcmp((symbol_table + i)->symbol, label) == 0) return 1;
 
     return 0;
 }
@@ -177,23 +218,18 @@ size_t tokenize(char *line, char **tokens)
         strcpy(tokens[i++], curr_token);
         printf("%s\n", curr_token);
 
+        if (curr_token[0] == '#') // It's a comment from now on; so we just stop reading tokens here
+            return token_count;
+
         if (token_count == 4)
         {
-            if (tokens[3][0] == '#')
-            {
-                // It's a comment from now on; so we just stop reading tokens here
-                return token_count;
-            }
-            else
-            {
-                // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
-                init_error();
-                printf("Error in tokenizing the following line:\n%s\n", line);
-                printf("Statement is not in the following format:\n");
-                printf("label<white>instruction<white>field0,field1,field2<white>#comments\n");
-                reset_color();
-                return -1;
-            }
+            // If we read the 4th token and it didn't start with a '#', the line isn't in the correct format
+            init_error();
+            printf("Error in tokenizing the following line:\n%s\n", line);
+            printf("Statement is not in the following format:\n");
+            printf("label<white>instruction<white>field0,field1,field2<white>#comments\n");
+            reset_color();
+            return -1;
         }
 
         curr_token = strtok(NULL, delimiter);
@@ -388,7 +424,7 @@ int check_valid_tokens(char **tokens, size_t token_count, char *instruction, cha
         printf("No fields token was detected\n");
     // #### TEMP CODE ####
 
-    if (!is_instruction(instruction))
+    if (!is_instruction(instruction) && !is_directive(instruction))
     {
         init_error();
         printf("The token \"%s\", which was detected to be the instruction, is not valid.\n", instruction);
@@ -459,13 +495,13 @@ size_t parse_fields_token(char *fields_token, char **parsed)
 
 int get_number_of_fields(char *instruction)
 {
-    if (!is_instruction(instruction)) return -1;
+    if (!is_instruction(instruction) && !is_directive(instruction)) return -1;
 
-    if (instruction == "lui" || instruction == "jalr")
+    if (strcmp(instruction, "lui") == 0 || strcmp(instruction, "jalr") == 0)
         return 2;
-    else if (instruction == "j")
+    else if (strcmp(instruction, "j") == 0 || strcmp(instruction, ".fill") == 0 || strcmp(instruction, ".space") == 0)
         return 1;
-    else if (instruction == "halt")
+    else if (strcmp(instruction, "halt") == 0)
         return 0;
     else
         return 3;
@@ -557,6 +593,16 @@ int is_instruction(char *str)
     return 0;
 }
 
+int is_directive(char *str)
+{
+    if (str == NULL) return 0;
+
+    for (int i = 0; i < DRCT_CNT; i++)
+        if (strcmp(directives[i], str) == 0) return 1;
+
+    return 0;
+}
+
 int is_label_name_valid(char *label)
 {
     if (strlen(label) < MAX_LABEL_LEN) return 0;
@@ -574,7 +620,10 @@ int is_numeric(char *str)
     size_t size = strlen(str);
 
     for (int i = 0; i < size; i++)
+    {
+        if (i == 0 && str[0] == '-') continue;
         if (!isdigit(str[i])) return 0;
+    }
 
     return 1;
 }

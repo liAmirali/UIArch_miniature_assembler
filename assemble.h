@@ -4,6 +4,7 @@
 #include <string.h>
 // the number of R, I and J type instructions
 #define INST_CNT 15
+#define DRCT_CNT 2
 #define NORTYPE 5
 #define NOITYPE 8
 #define NOJTYPE 2
@@ -43,7 +44,7 @@ struct Instruction
  * Scans the assembly code entirely and writes the compiled code into the machine code file
  * @return 0 for success or other integers for any error
  */
-int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *, size_t);
+int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *, size_t, int txt_seg[TXT_SEG_SIZE]);
 
 /**
  * Fills up the symbol table
@@ -117,6 +118,11 @@ char get_hex_digit(int n);
  * Checks if a token is a valid instruction among the 15 defined instructions
  */
 int is_instruction(char *);
+
+/**
+ * Checks if a token is a valid directive among the 2 defined directives
+ */
+int is_directive(char *);
 
 /**
  * Checks if the string is a valid label name

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// the number of R, I and J type instructions
+// the number of R, I and J type instructions and directives
 #define INST_CNT 15
 #define DRCT_CNT 2
 #define NORTYPE 5
@@ -15,6 +15,8 @@
 #define MAX_LABEL_LEN 6
 #define LINE_SIZE 72
 #define TXT_SEG_SIZE 8192
+#define MIN_SGN_OFFSET -32768
+#define MAX_SGN_OFFSET 32767
 /* this structure is defined to hold ever entity of symbol table    *
  * which, after finding the length, will become an array of symbols */
 struct SymbolTable
@@ -37,19 +39,18 @@ struct Instruction
     int rt;
     int rd;
     int imm;
-    // int PC; ?
 };
+
+/**
+ * Fills up the symbol table
+ */
+size_t fill_symtab(struct SymbolTable *, FILE *);
 
 /**
  * Scans the assembly code entirely and writes the compiled code into the machine code file
  * @return 0 for success or other integers for any error
  */
 int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *, size_t, int txt_seg[TXT_SEG_SIZE]);
-
-/**
- * Fills up the symbol table
- */
-size_t fill_symtab(struct SymbolTable *, FILE *);
 
 /**
  * Searches through the symbol table and returns the value inside it
@@ -71,7 +72,7 @@ size_t tokenize(char *, char **);
 /**
  * Returns an instruction struct with given tokens
  */
-struct Instruction *form_instruction(char *instruction, char **fields, struct SymbolTable *symbol_table, size_t symbol_table_size);
+struct Instruction *form_instruction(char *instruction, char **fields, int, struct SymbolTable *symbol_table, size_t symbol_table_size);
 
 /**
  * Returns the hex equivalent of the instruction

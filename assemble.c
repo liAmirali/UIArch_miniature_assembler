@@ -2,7 +2,7 @@
 
 void main(int argc, char **argv)
 {
-    FILE *assem_file, *machine_file, *fopen();
+    FILE *assem_file, *machine_file;
     struct SymbolTable *sym_table;
     int text_data_seg[TXT_SEG_SIZE];
     size_t sym_table_size;
@@ -28,16 +28,80 @@ void main(int argc, char **argv)
 
     sym_table = (struct SymbolTable *)malloc(sizeof(struct SymbolTable) * (TXT_SEG_SIZE));
     sym_table_size = fill_symtab(sym_table, assem_file);
-    int status = compile(assem_file, machine_file, sym_table, sym_table_size, text_data_seg);
 
-    if (status == 0)
-        printf("Compiled successfully.\n");
-    else
-        printf("Compilation ended with errors.\n");
+    if (sym_table_size > TXT_SEG_SIZE)
+    {
+        init_error();
+        printf("An error was occurred extracting symbols.\n");
+        reset_color();
+
+        free(sym_table);
+        fclose(assem_file);
+        fclose(machine_file);
+
+        exit(1);
+    }
+
+    int status = compile(assem_file, machine_file, sym_table, sym_table_size, text_data_seg);
 
     free(sym_table);
     fclose(assem_file);
     fclose(machine_file);
+
+    if (status == 0)
+    {
+        printf("Compiled successfully.\n");
+        exit(0);
+    }
+    else
+    {
+        printf("Compilation ended with errors.\n");
+        exit(1);
+    }
+}
+
+size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
+{
+    char *token;
+    size_t line_size = LINE_SIZE;
+    char *line = (char *)malloc(line_size * sizeof(char));
+    int line_number = 0;
+    char delimiter[4] = "\t ";
+    size_t symbol_table_size = 0;
+
+    while (getline(&line, &line_size, inputFile) != -1)
+    {
+        remove_trailing_nline(line);
+
+        if (line == NULL || strcmp(line, "") == 0) continue;
+
+        token = strtok(line, delimiter);
+
+        if (token == NULL) continue;
+
+        if (!is_instruction(token) && !is_directive(token))
+        {
+            printf("LABEL:%s\n", token);
+            if (label_exists(symbol_table, symbol_table_size, token))
+            {
+                init_error();
+                printf("Duplicate label was found: %s\n", token);
+                reset_color();
+                return TXT_SEG_SIZE + 1;
+            }
+
+            (symbol_table + symbol_table_size)->symbol = malloc(strlen(token) * sizeof(char));
+            strcpy((symbol_table + symbol_table_size)->symbol, token);
+            (symbol_table + symbol_table_size)->value = line_number;
+            symbol_table_size++;
+        }
+        line_number++;
+    }
+
+    rewind(inputFile);
+    free(line);
+
+    return symbol_table_size;
 }
 
 int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *symbol_table, size_t symbol_table_size, int txt_seg[TXT_SEG_SIZE])
@@ -98,7 +162,15 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
 
         if (is_instruction(detected_instruction))
         {
-            instruction = form_instruction(detected_instruction, detected_fields, symbol_table, symbol_table_size);
+            instruction = form_instruction(detected_instruction, detected_fields, data_seg_top, symbol_table, symbol_table_size);
+
+            if (instruction == NULL)
+            {
+                init_error();
+                printf("An error was thrown while compiling the following line:\n%s\n", line);
+                reset_color();
+                return 0;
+            }
 
             get_instruction_hex(instruction, instruction_hex);
             int instruction_decimal = hex2int(instruction_hex);
@@ -135,7 +207,7 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
                 for (int i = 0; i < value; i++)
                 {
                     txt_seg[data_seg_top] = 0;
-                    // fprintf(machine_code_file, "%d\n", 0);
+                    fprintf(machine_code_file, "%d\n", 0);
                     data_seg_top++;
                 }
             }
@@ -145,43 +217,9 @@ int compile(FILE *assembly_file, FILE *machine_code_file, struct SymbolTable *sy
     return 0;
 }
 
-size_t fill_symtab(struct SymbolTable *symbol_table, FILE *inputFile)
-{
-    char *token;
-    size_t line_size = LINE_SIZE;
-    char *line = (char *)malloc(line_size * sizeof(char));
-    int line_number = 0;
-    char delimiter[4] = "\t ";
-    size_t symbol_table_size = 0;
-
-    while (getline(&line, &line_size, inputFile) != -1)
-    {
-        remove_trailing_nline(line);
-
-        if (line == NULL || strcmp(line, "") == 0) continue;
-
-        token = strtok(line, delimiter);
-
-        if (token == NULL) continue;
-
-        if (!is_instruction(token) && !is_directive(token))
-        {
-            printf("LABEL:%s\n", token);
-            (symbol_table + symbol_table_size)->symbol = malloc(strlen(token) * sizeof(char));
-            strcpy((symbol_table + symbol_table_size)->symbol, token);
-            (symbol_table + symbol_table_size)->value = line_number;
-            symbol_table_size++;
-        }
-        line_number++;
-    }
-    rewind(inputFile);
-    free(line);
-    return symbol_table_size;
-}
-
 int get_label_value(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
 {
-    for (int i = 0; i, symbol_table_size; i++)
+    for (int i = 0; i < symbol_table_size; i++)
         if (strcmp((symbol_table + i)->symbol, label) == 0) return (symbol_table + i)->value;
 
     return 0;
@@ -189,7 +227,7 @@ int get_label_value(struct SymbolTable *symbol_table, size_t symbol_table_size, 
 
 int label_exists(struct SymbolTable *symbol_table, size_t symbol_table_size, char *label)
 {
-    for (int i = 0; i, symbol_table_size; i++)
+    for (int i = 0; i < symbol_table_size; i++)
         if (strcmp((symbol_table + i)->symbol, label) == 0) return 1;
 
     return 0;
@@ -211,12 +249,13 @@ size_t tokenize(char *line, char **tokens)
     char *temp_line = (char *)malloc(line_size * sizeof(char));
     strcpy(temp_line, line);
 
+    printf("**Compiling: %s\n", line);
+
     curr_token = strtok(temp_line, delimiter);
     while (curr_token != NULL)
     {
         token_count++;
         strcpy(tokens[i++], curr_token);
-        printf("%s\n", curr_token);
 
         if (curr_token[0] == '#') // It's a comment from now on; so we just stop reading tokens here
             return token_count;
@@ -238,7 +277,7 @@ size_t tokenize(char *line, char **tokens)
     return token_count;
 }
 
-struct Instruction *form_instruction(char *instruction, char **fields, struct SymbolTable *symbol_table, size_t symbol_table_size)
+struct Instruction *form_instruction(char *instruction, char **fields, int instruction_count, struct SymbolTable *symbol_table, size_t symbol_table_size)
 {
     struct Instruction *compiled_instruction = (struct Instruction *)malloc(sizeof(struct Instruction));
 
@@ -252,25 +291,38 @@ struct Instruction *form_instruction(char *instruction, char **fields, struct Sy
     }
     else if (compiled_instruction->instType == 1)
     {
-        if (strcpy(instruction, "lui") == 0)
+        if (strcmp(instruction, "lui") == 0)
         {
             compiled_instruction->rt = atoi(fields[0]);
             compiled_instruction->rs = 0;
             compiled_instruction->imm = atoi(fields[1]);
         }
-        else if (strcpy(instruction, "jalr") == 0)
+        else if (strcmp(instruction, "jalr") == 0)
         {
             compiled_instruction->rt = atoi(fields[0]);
             compiled_instruction->rs = atoi(fields[1]);
             compiled_instruction->imm = 0;
         }
-        else if (strcpy(instruction, "lw") == 0 || strcpy(instruction, "sw") == 0 || strcpy(instruction, "beq") == 0)
+        else if (strcmp(instruction, "lw") == 0 || strcmp(instruction, "sw") == 0 || strcmp(instruction, "beq") == 0)
         {
+            compiled_instruction->rt = atoi(fields[0]);
+            compiled_instruction->rs = atoi(fields[1]);
+
             if (is_numeric(fields[2]))
                 compiled_instruction->imm = atoi(fields[2]);
             else if (label_exists(symbol_table, symbol_table_size, fields[2]))
             {
                 compiled_instruction->imm = get_label_value(symbol_table, symbol_table_size, fields[2]);
+                if (strcmp(instruction, "beq") == 0)
+                {
+                    compiled_instruction->imm -= instruction_count + 1;
+
+                    /**
+                     * rs and rt are swapped in beq instruction.
+                     */
+                    compiled_instruction->rt = atoi(fields[1]);
+                    compiled_instruction->rs = atoi(fields[0]);
+                }
             }
             else
             {
@@ -286,16 +338,25 @@ struct Instruction *form_instruction(char *instruction, char **fields, struct Sy
             compiled_instruction->rs = atoi(fields[1]);
             compiled_instruction->imm = atoi(fields[2]);
         }
+
+        if (compiled_instruction->imm > MAX_SGN_OFFSET || compiled_instruction->imm < MIN_SGN_OFFSET)
+        {
+            init_error();
+            printf("Offset overflow: %d\n", compiled_instruction);
+            printf("Immediate values can be in the range of %d to %d\n", MIN_SGN_OFFSET, MAX_SGN_OFFSET);
+            reset_color();
+            return NULL;
+        }
     }
     else if (compiled_instruction->instType == 2)
     {
         compiled_instruction->rt = 0;
-        if (strcpy(instruction, "halt") == 0)
+        if (strcmp(instruction, "halt") == 0)
             compiled_instruction->imm = 0;
-        else if (strcpy(instruction, "j") == 0)
+        else if (strcmp(instruction, "j") == 0)
         {
-            if (label_exists(symbol_table, symbol_table_size, fields[2]))
-                compiled_instruction->imm = get_label_value(symbol_table, symbol_table_size, fields[2]);
+            if (label_exists(symbol_table, symbol_table_size, fields[0]))
+                compiled_instruction->imm = get_label_value(symbol_table, symbol_table_size, fields[0]);
             else
             {
                 init_error();
@@ -408,6 +469,7 @@ int check_valid_tokens(char **tokens, size_t token_count, char *instruction, cha
         break;
     case 1:
         strcpy(instruction, tokens[0]);
+        break;
     default:
         init_error();
         printf("Invalid number of tokens.\n");
@@ -551,7 +613,14 @@ int hex2int(char *hex)
 void int2hex16(char *lower, int a)
 {
     sprintf(lower, "%X", a);
-    if (a < 0x10)
+    if (a < 0x0)
+    {
+        lower[3] = lower[7];
+        lower[2] = lower[6];
+        lower[1] = lower[5];
+        lower[0] = lower[4];
+    }
+    else if (a < 0x10)
     {
         lower[4] = '\0';
         lower[3] = lower[0];
